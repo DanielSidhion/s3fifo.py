@@ -1,4 +1,6 @@
-def init_states(size=8900):
+# Min size for datasets/AzureFunctionsDataset2019Processed_300M_001.txt: 252818
+# Min size for datasets/AzureFunctionsDataset2019Processed_600M_001.txt: 252818
+def init_states(size=300000):
     from size_time_aware_algs import FIFOTimed
 
     return {
