@@ -1,10 +1,11 @@
 # Min size for datasets/AzureFunctionsDataset2019Processed_300M_001.txt: 252818
 # Min size for datasets/AzureFunctionsDataset2019Processed_600M_001.txt: 252818
-def init_states(size=300000):
-    from size_time_aware_algs import FIFOTimed
+def init_states(size=252818):
+    from size_time_aware_algs import FIFOTimed, S3FIFONaiveTimed
 
     return {
         "fifo": FIFOTimed(size=size),
+        "s3fifonaive": S3FIFONaiveTimed(size=int(size * 1.1), max_pct_cached=0.1)
     }
 
 def get_item(state, start_ts, item_id, end_ts, item_size):
