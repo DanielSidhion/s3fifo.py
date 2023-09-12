@@ -4,7 +4,7 @@ def init_states(size=252818):
     from size_time_aware_algs import FIFOTimed, S3FIFONaiveTimed
 
     return {
-        "fifo": FIFOTimed(size=size),
+        "fifo": FIFOTimed(size=size * 1.1),
         "s3fifonaive": S3FIFONaiveTimed(size=int(size * 1.1), max_pct_cached=0.1)
     }
 
