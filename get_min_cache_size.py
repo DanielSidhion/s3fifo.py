@@ -12,18 +12,25 @@ def get_min_cache_size(filename):
     import csv
     import matplotlib.pyplot as plt
 
+    total_invocations = 0
+
     max_running_size = 0
     curr_running_size = 0
     invs = {}
     sorted_invs = []
 
-    times = []
-    running_sizes = []
+    # times = []
+    # running_sizes = []
 
     with open(filename, 'r') as f:
         reader = csv.reader(f)
 
         for start_ts, end_ts, item_id, item_size in reader:
+            total_invocations += 1
+
+            if total_invocations % 10000000 == 0:
+                print(f'Total invocations already processed: {total_invocations}')
+
             start_ts = float(start_ts)
             end_ts = float(end_ts)
             item_size = float(item_size)
@@ -55,14 +62,14 @@ def get_min_cache_size(filename):
                     heapq.heappop(sorted_invs)
             
             max_running_size = max(max_running_size, curr_running_size)
-            times.append(start_ts)
-            running_sizes.append(curr_running_size)
+            # times.append(start_ts)
+            # running_sizes.append(curr_running_size)
 
     print(f'Min cache size for all invocations to work: {max_running_size}')
-    fig, ax = plt.subplots()
-    ax.plot(times, running_sizes)
-    plt.axhline(y=max_running_size, color='r', linestyle='-')
-    plt.show()
+    # fig, ax = plt.subplots()
+    # ax.plot(times, running_sizes)
+    # plt.axhline(y=max_running_size, color='r', linestyle='-')
+    # plt.show()
 
 if __name__ == '__main__':
     import sys

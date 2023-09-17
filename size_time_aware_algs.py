@@ -134,16 +134,16 @@ class S3FIFONaiveTimed:
         # Evict items from G if it will be full. Items that have not been adopted into another queue are completely removed from the cache.
         while self.g_size + new_item.size >= self.target_len_m:
             tail_item = self.G.pop()
-            assert tail_item.freq < 0
             self.g_size -= tail_item.size
-            del self.table[tail_item.key]
+            if tail_item.freq < 0:
+                del self.table[tail_item.key]
 
         new_item.freq = -1
         self.G.appendleft(new_item)
         self.g_size += new_item.size
 
     def ensure_free(self, curr_timestamp):
-        "Ensure there is at least one location free for a new item"
+        'Ensure there is at least one location free for a new item'
         while self.s_size + self.m_size >= self.size:
             if self.m_size >= self.target_len_m or self.s_size == 0:
                 self.evictM(curr_timestamp)
@@ -174,7 +174,7 @@ class S3FIFONaiveTimed:
         if frozen_items_visited >= len(self.M):
             raise Exception("We needed to evict something from M, but we can't evict anything because we're full!")
 
-        assert False, "impossible!"
+        assert False, 'Unreachable!'
 
     def evictS(self, curr_timestamp):
         # Promote items into M until we find an item we can demote to G or run out of items. Note that we'll only move items to G if both its frequency is <= 0 AND the item is already expired. There are cases when frequency is <= 0 (and on normal S3FIFO would be moved to G), but the item is not yet expired.
@@ -195,7 +195,7 @@ class S3FIFONaiveTimed:
                     # Item can be moved to G and is already expired, so we'll go ahead and move it.
                     self.S.remove(tail_item)
                     self.s_size -= tail_item.size
-                    self.insertG(tail_item)
+                    self.insertG(tail_item, curr_timestamp)
                     return
 
             if not item_promoted:
