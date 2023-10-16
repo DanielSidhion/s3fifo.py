@@ -13,7 +13,7 @@ class Invocation:
 # Min size for datasets/AzureFunctionsDataset2019Processed_600M_001.txt: 252818
 # Min size for datasets/AzureFunctionsDataset2019Processed_10G_001.txt: 304246.0
 # Min size for datasets/AzureFunctionsDataset2019Processed.txt: 391376.0
-def init_states(size=int(7900 * 1.1)):
+def init_states(size=int(252818 * 1.1 + 1)):
     from size_time_aware_algs import FIFOTimed, S3FIFONaiveTimed
     from size_aware_algs import FIFOSized, S3FIFONaiveSized
 
@@ -29,6 +29,8 @@ def init_states(size=int(7900 * 1.1)):
         'sorted_invocations': [],
         'invocations_index': {},
         'existing_hits': 0,
+        'total_cache_size': size,
+        'running_invocations_size': 0,
     }
 
 def get_item(state, start_ts, item_id, end_ts, item_size):
@@ -36,15 +38,24 @@ def get_item(state, start_ts, item_id, end_ts, item_size):
         queue.get(item_id, start_ts, end_ts, item_size)
 
 def get_item_end(state, start_ts, item_id, end_ts, item_size):
-    # TODO: add a way to reduce the size of the cache as new invocations come up, or increase the size of the cache as they get removed.
-
     # Must remove all finished invocations from the heap before doing anything.
     sorted_invs = state['sorted_invocations']
     while len(sorted_invs) > 0 and (sorted_invs[0].removed or sorted_invs[0].end_ts <= start_ts):
         expired_item = heapq.heappop(sorted_invs)
+        if expired_item.removed:
+            # This was just a tombstone, nothing else to do with this item.
+            continue
 
-        if not expired_item.removed:
-            del state['invocations_index'][expired_item.identifier]
+        del state['invocations_index'][expired_item.identifier]
+        state['running_invocations_size'] -= expired_item.size
+
+        new_queue_size = state['total_cache_size'] - state['running_invocations_size']
+        for queue in state['size_algs'].values():
+            queue.change_size(new_queue_size)
+
+        for queue in state['size_algs'].values():
+            # We're only populating the queue here, so we don't want to muddle the stats.
+            queue.get(expired_item.identifier, expired_item.size, ignore_stats=True)
 
     if item_id in state['invocations_index']:
         state['existing_hits'] += 1
@@ -56,15 +67,23 @@ def get_item_end(state, start_ts, item_id, end_ts, item_size):
             existing_item.removed = True
 
             state['invocations_index'][item_id] = Invocation(new_end_ts, existing_item.size, False, item_id)
-            heapq.heappush(state['sorted_invocations'], existing_item)
+            heapq.heappush(state['sorted_invocations'], state['invocations_index'][item_id])
     else:
-        # We'll add the item to the list of running invocations, and also hit the caches to simulate retrieving this element from the cache.
+        # We'll add the item to the list of running invocations, and also hit the caches to simulate retrieving this element from the cache. Whether it's a hit or miss will be recorded in the cache.
         new_item = Invocation(end_ts, item_size, False, item_id)
         state['invocations_index'][item_id] = new_item
         heapq.heappush(state['sorted_invocations'], new_item)
+        state['running_invocations_size'] += item_size
+        assert state['running_invocations_size'] <= state['total_cache_size']
 
         for queue in state['size_algs'].values():
+            # This is done so we can record stats when hitting the cache. We'll remove the item right away because it's going on the list of running invocations.
             queue.get(item_id, item_size)
+            queue.remove_item(item_id)
+
+        new_queue_size = state['total_cache_size'] - state['running_invocations_size']
+        for queue in state['size_algs'].values():
+            queue.change_size(new_queue_size)
 
 def run_tests_for_csv(filename):
     import csv

@@ -10,11 +10,13 @@ class FIFOSized:
         self.rem_size = size
         self.hits = self.misses = 0
 
-    def get(self, key, item_size):
+    def get(self, key, item_size, ignore_stats=False):
         if key in self.table:
-            self.hits += 1
+            if not ignore_stats:
+                self.hits += 1
         else:
-            self.misses += 1
+            if not ignore_stats:
+                self.misses += 1
             size_to_clear = item_size - self.rem_size
             while size_to_clear > 0:
                 if len(self.fifo) == 0:
@@ -28,6 +30,31 @@ class FIFOSized:
             self.rem_size -= item_size
             self.table[key] = item_size
             self.fifo.append(key)
+
+    def remove_item(self, key):
+        assert key in self.table
+
+        self.rem_size += self.table[key]
+        self.fifo.remove(key)
+        del self.table[key]
+
+    def change_size(self, new_size):
+        if self.max_size <= new_size:
+            # Just increasing the queue size, not a lot to do.
+            self.rem_size += new_size - self.max_size
+            self.max_size = new_size
+        else:
+            # Result of this will be negative if we have to evict items. Positive if we still have space left in the queue.
+            self.rem_size = self.rem_size - (self.max_size - new_size)
+            # Mostly a copy-paste from part of the code in `get`.
+            size_to_clear = -self.rem_size
+            while size_to_clear > 0:
+                k = self.fifo.popleft()
+                size_to_clear -= self.table[k]
+                self.rem_size += self.table[k]
+                del self.table[k]
+            assert self.rem_size >= 0
+            self.max_size = new_size
 
 @dataclass(slots=True)
 class S3FIFOItem:
@@ -43,6 +70,7 @@ class S3FIFONaiveSized:
     """
     def __init__(self, size, max_pct_cached):
         assert size * max_pct_cached > 0
+        self.max_pct_cached = max_pct_cached
         target_len_s = size * max_pct_cached
         self.target_len_m = size - target_len_s
         self.size = size
@@ -60,15 +88,16 @@ class S3FIFONaiveSized:
         self.G = deque()
         self.g_size = 0
 
-    def get(self, key, item_size):
+    def get(self, key, item_size, ignore_stats=False):
         item = None
         if key in self.table:
             item = self.table[key]
             if item.freq < 0:
                 # Cache miss, item in G.
                 # (Items entering G have freq set to -1).
-                self.hit_ghosts += 1
-                self.misses += 1
+                if not ignore_stats:
+                    self.hit_ghosts += 1
+                    self.misses += 1
 
                 # Re-cache the value and reset freq (import to do this before ensure_free!).
                 item.freq = 0
@@ -79,11 +108,13 @@ class S3FIFONaiveSized:
                 # We don't need to delete from G, that will happen automatically as we add values to G.
             else:
                 # Cache hit! Update freq.
-                self.hits += 1
+                if not ignore_stats:
+                    self.hits += 1
                 item.freq = min(item.freq + 1, 3)
         else:
             # Cache miss, unseen or forgotten key.
-            self.misses += 1
+            if not ignore_stats:
+                self.misses += 1
 
             item = S3FIFOItem(key, item_size)
             self.table[key] = item
@@ -92,28 +123,49 @@ class S3FIFONaiveSized:
             self.ensure_free(item_size)
             self.insertS(item)
 
+    def remove_item(self, key):
+        assert key in self.table
+
+        if key in self.S:
+            self.s_size -= self.table[key].size
+            self.S.remove(key)
+
+        if key in self.M:
+            self.m_size -= self.table[key].size
+            self.M.remove(key)
+
+        # Key might still be in G, so we don't remove it from the table.
+
     def insertM(self, item):
         item.freq = 0
         self.M.appendleft(item)
         self.m_size += item.size
-        assert self.s_size + self.m_size <= self.size
 
     def insertS(self, item):
         self.S.appendleft(item)
         self.s_size += item.size
-        assert self.s_size + self.m_size <= self.size
 
     def insertG(self, new_item):
-        # Evict items from G if it will be full. Items that have not been adopted into another queue are completely removed from the cache.
-        while self.g_size + new_item.size >= self.target_len_m:
-            tail_item = self.G.pop()
-            self.g_size -= tail_item.size
-            if tail_item.freq < 0:
-                del self.table[tail_item.key]
-
         new_item.freq = -1
         self.G.appendleft(new_item)
         self.g_size += new_item.size
+
+        # Evict items from G if it is full. Items that have not been adopted into another queue are completely removed from the cache.
+        while self.g_size >= self.target_len_m:
+            tail_item = self.G.pop()
+            self.g_size -= tail_item.size
+            if tail_item.freq < 0 and tail_item.key in self.table:
+                del self.table[tail_item.key]
+
+    def change_size(self, new_size):
+        old_size = self.size
+        target_len_s = new_size * self.max_pct_cached
+        self.target_len_m = new_size - target_len_s
+        self.size = new_size
+
+        if old_size > new_size:
+            # We might have to evict items.
+            self.ensure_free(0)
 
     def ensure_free(self, item_size):
         'Ensure there is space for at least the new item'

@@ -35,6 +35,15 @@ def get_min_cache_size(filename):
             end_ts = float(end_ts)
             item_size = float(item_size)
 
+            # Expire all invocations that finished already.
+            while len(sorted_invs) > 0 and (sorted_invs[0].removed or sorted_invs[0].end_ts <= start_ts):
+                expired_item = heapq.heappop(sorted_invs)
+
+                if not expired_item.removed:
+                    curr_running_size -= expired_item.size
+                    assert curr_running_size >= 0
+                    del invs[expired_item.identifier]
+
             if item_id in invs:
                 existing_end_ts = invs[item_id].end_ts
                 new_end_ts = max(invs[item_id].end_ts, end_ts)
@@ -49,17 +58,6 @@ def get_min_cache_size(filename):
                 invs[item_id] = Invocation(end_ts, item_size, False, item_id)
                 heapq.heappush(sorted_invs, invs[item_id])
                 curr_running_size += item_size
-
-            # Expire all invocations that finished already.
-            while len(sorted_invs) > 0 and (sorted_invs[0].removed or sorted_invs[0].end_ts <= start_ts):
-                if sorted_invs[0].removed:
-                    # Just remove from the queue, this entry was already marked as removed so it shouldn't count to reduce size.
-                    heapq.heappop(sorted_invs)
-                else:
-                    curr_running_size -= sorted_invs[0].size
-                    assert curr_running_size >= 0
-                    del invs[sorted_invs[0].identifier]
-                    heapq.heappop(sorted_invs)
             
             max_running_size = max(max_running_size, curr_running_size)
             # times.append(start_ts)
