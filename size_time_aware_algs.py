@@ -100,7 +100,7 @@ class S3FIFONaiveTimed:
                 item.expiry_ts = expiry_ts
                 item.freq = 0
 
-                self.ensure_free(curr_timestamp)
+                self.ensure_free(curr_timestamp, item_size)
                 self.insertM(item)
 
                 # We don't need to delete from G, that will happen automatically as we add values to G.
@@ -117,17 +117,19 @@ class S3FIFONaiveTimed:
             self.table[key] = item
 
             # Insert into small fifo.
-            self.ensure_free(curr_timestamp)
+            self.ensure_free(curr_timestamp, item_size)
             self.insertS(item)
 
     def insertM(self, item):
         item.freq = 0
         self.M.appendleft(item)
         self.m_size += item.size
+        assert self.s_size + self.m_size <= self.size
 
     def insertS(self, item):
         self.S.appendleft(item)
         self.s_size += item.size
+        assert self.s_size + self.m_size <= self.size
 
     def insertG(self, new_item, curr_timestamp):
         assert new_item.expiry_ts <= curr_timestamp
@@ -142,9 +144,9 @@ class S3FIFONaiveTimed:
         self.G.appendleft(new_item)
         self.g_size += new_item.size
 
-    def ensure_free(self, curr_timestamp):
+    def ensure_free(self, curr_timestamp, item_size):
         'Ensure there is at least one location free for a new item'
-        while self.s_size + self.m_size >= self.size:
+        while self.s_size + self.m_size >= self.size - item_size:
             if self.m_size >= self.target_len_m or self.s_size == 0:
                 self.evictM(curr_timestamp)
             else:
