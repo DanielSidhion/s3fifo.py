@@ -58,7 +58,7 @@ class S3FIFOItem:
 
 class S3FIFONaiveTimed:
     """
-    This is an adaptation of the S3FIFO code implemented by Colin Caine in s3fifo.py. Original code Copyright Colin Caine 2023. MIT License.
+    This is an adaptation of the S3FIFO code implemented by Colin Caine. Original code Copyright Colin Caine 2023. MIT License.
     Adaptations were made to work with items of reasonably arbitrary size (there will be floating point issues if sizes are either too large, too small, or deal with a lot of fractional digits).
     Adaptations were also made to work with items that can't be expired until a certain timestamp. This implementation is called "naive" because that was the first idea I had when thinking of how to adapt it: if an item would be evicted from the cache, we also check if it's already expired. If it is, we evict the item. If it's not, we forcibly keep the item in the cache until it expires.
     Finally, this code won't actually cache any values, or return any values on a get operation. It's here purely to test how well it performs under certain conditions compared to other code.

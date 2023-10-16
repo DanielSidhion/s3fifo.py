@@ -37,7 +37,7 @@ class S3FIFOItem:
 
 class S3FIFONaiveSized:
     """
-    This is an adaptation of the S3FIFO code implemented by Colin Caine in s3fifo.py. Original code Copyright Colin Caine 2023. MIT License.
+    This is an adaptation of the S3FIFO code implemented by Colin Caine. Original code Copyright Colin Caine 2023. MIT License.
     Adaptations were made to work with items of reasonably arbitrary size (there will be floating point issues if sizes are either too large, too small, or deal with a lot of fractional digits).
     Finally, this code won't actually cache any values, or return any values on a get operation. It's here purely to test how well it performs under certain conditions compared to other code.
     """
