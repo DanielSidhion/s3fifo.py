@@ -9,11 +9,11 @@ class Invocation:
     identifier: str = field(compare=False)
 
 # Min size for datasets/AzureFunctionsInvocationTraceProcessedDuplicated.txt: 7900.0
-# Min size for datasets/AzureFunctionsDataset2019Processed_300M_001.txt: 252818
-# Min size for datasets/AzureFunctionsDataset2019Processed_600M_001.txt: 252818
+# Min size for datasets/AzureFunctionsDataset2019Processed_300M_001.txt: 252818.0
+# Min size for datasets/AzureFunctionsDataset2019Processed_600M_001.txt: 252818.0
 # Min size for datasets/AzureFunctionsDataset2019Processed_10G_001.txt: 304246.0
-# Min size for datasets/AzureFunctionsDataset2019Processed.txt: 391376.0
-def init_states(size=int(252818 * 1.1 + 1)):
+# Min size for datasets/AzureFunctionsDataset2019Processed.txt: 485924.0
+def init_states(size=int(252818)):
     from size_time_aware_algs import FIFOTimed, S3FIFONaiveTimed
     from size_aware_algs import FIFOSized, S3FIFONaiveSized
 

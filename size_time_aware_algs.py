@@ -34,10 +34,6 @@ class FIFOTimed:
                     i += 1
                 
                 if size_to_clear > 0:
-                    print(f'current timestamp is {curr_timestamp}')
-                    print(f'rem_size={self.rem_size}, trying to add item with size={item_size}')
-                    print(f'fifo state: {self.fifo}')
-                    print(f'table state: {self.table}')
                     raise Exception("Can't make space in the cache for this item!")
             
             self.table[key] = expiry_ts
