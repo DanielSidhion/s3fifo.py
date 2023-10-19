@@ -90,7 +90,7 @@ hit_rates_per_data = {
     's3fifo_naive_sized': [0.919684, 0.928447, 0.948784, 0.960786],
 }
 
-fig = plt.figure()
+plt.figure(figsize=[12.8, 9.6])
 for queue_type in hit_rates.keys():
     plt.plot(cache_sizes, hit_rates[queue_type], marker='o', label=queue_type)
 plt.legend(loc='lower right')
@@ -100,7 +100,7 @@ plt.minorticks_on()
 plt.savefig('hit_rates_cache_size.jpg')
 plt.show()
 
-plt.clf()
+plt.figure(figsize=[12.8, 9.6], clear=True)
 
 for queue_type in hit_rates_per_data.keys():
     plt.plot(amount_of_data, hit_rates_per_data[queue_type], marker='o', label=queue_type)
